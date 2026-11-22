@@ -1,0 +1,345 @@
+/**
+ * Interface text in English and Czech.
+ * Keys are grouped by screen. Use t('key', {name: 'value'}) for placeholders.
+ */
+
+const STRINGS = {
+  en: {
+    'app.name': 'LeadLog',
+
+    'tab.capture': 'Capture',
+    'tab.leads': 'Leads',
+    'tab.report': 'Report',
+    'tab.settings': 'Settings',
+
+    'common.cancel': 'Cancel',
+    'common.save': 'Save',
+    'common.done': 'Done',
+    'common.delete': 'Delete',
+    'common.add': 'Add',
+    'common.close': 'Close',
+    'common.none': 'None',
+    'common.today': 'Today',
+
+    'show.none.title': 'Start your first show',
+    'show.none.body': 'Each exhibition gets its own leads and report.',
+    'show.new': 'New show',
+    'show.edit': 'Edit show',
+    'show.name': 'Name',
+    'show.name.placeholder': 'Exhibition name',
+    'show.type': 'Type',
+    'show.type.business': 'Trade show',
+    'show.type.career': 'Career fair',
+    'show.switch': 'Switch show',
+    'show.delete': 'Delete show',
+    'show.delete.confirm': 'Delete “{name}”? Its {count} leads will be removed from this phone.',
+
+    'capture.leadsToday': 'Leads today',
+    'capture.leadsTotal': 'Leads at this show',
+    'capture.scan': 'Scan badge',
+    'capture.newLead': 'New lead',
+    'capture.recent': 'Recent leads',
+    'capture.recent.empty': 'Leads you save appear here.',
+
+    'lead.new': 'New Lead',
+    'lead.edit': 'Lead',
+    'lead.section.contact': 'Contact',
+    'lead.section.student': 'Student',
+    'lead.name': 'Name',
+    'lead.company': 'Company',
+    'lead.jobTitle': 'Job title',
+    'lead.country': 'Country',
+    'lead.email': 'Email',
+    'lead.phone': 'Phone',
+    'lead.school': 'School',
+    'lead.field': 'Field of study',
+    'lead.year': 'Year or graduation',
+    'lead.linkedin': 'LinkedIn',
+    'lead.interests.business': 'Interested in',
+    'lead.interests.career': 'Looking for',
+    'lead.followups': 'Follow-up',
+    'lead.priority': 'Priority',
+    'lead.priority.hot': 'Hot',
+    'lead.priority.warm': 'Warm',
+    'lead.priority.cold': 'Cold',
+    'lead.notes': 'Notes',
+    'lead.notes.placeholder': 'What they asked about, quantities, deadlines',
+    'lead.consent': 'May contact them',
+    'lead.consent.footer.company': 'They agreed to be contacted by {company} about this.',
+    'lead.consent.footer.generic': 'They agreed to be contacted about this.',
+    'lead.followedUp': 'Followed up',
+    'lead.photo': 'Photo',
+    'lead.photo.add': 'Add photo',
+    'lead.photo.replace': 'Replace photo',
+    'lead.photo.remove': 'Remove photo',
+    'lead.photo.footer': 'A business card, CV or anything worth keeping with this lead.',
+    'lead.badge': 'Badge code',
+    'lead.badge.footer': 'This badge holds an ID rather than contact details. Match it with the organiser’s lead export after the show.',
+    'lead.delete': 'Delete Lead',
+    'lead.delete.confirm': 'This lead will be deleted from this phone.',
+    'lead.required': 'Add at least a name, company, school, email or phone number.',
+    'lead.emailInvalid': 'Check the email address.',
+    'lead.saved': 'Lead saved',
+    'lead.updated': 'Changes saved',
+    'lead.deleted': 'Lead deleted',
+    'lead.added': 'Added {date}',
+
+    'scan.title': 'Scan Badge',
+    'scan.hint': 'Point the camera at the QR code on the badge.',
+    'scan.photo': 'Take a Photo Instead',
+    'scan.noCamera': 'The camera isn’t available. Take a photo of the code instead.',
+    'scan.denied': 'Camera access is off. Allow it in Settings, or take a photo of the code instead.',
+    'scan.notFound': 'No QR code found in that photo. Try again closer and in good light.',
+    'scan.duplicate': 'Already scanned at {time}',
+    'scan.idOnly': 'Badge code saved',
+
+    'leads.search': 'Search',
+    'leads.filter.all': 'All',
+    'leads.filter.hot': 'Hot',
+    'leads.filter.todo': 'To Follow Up',
+    'leads.empty': 'No leads yet',
+    'leads.empty.body': 'Leads you capture at this show appear here.',
+    'leads.noMatch': 'No matching leads',
+
+    'report.leads': 'Leads',
+    'report.hot': 'Hot',
+    'report.consent': 'May contact',
+    'report.todo': 'To follow up',
+    'report.byHour': 'Leads by Hour',
+    'report.interests.business': 'Interest',
+    'report.interests.career': 'Looking For',
+    'report.countries': 'Countries',
+    'report.schools': 'Schools',
+    'report.nothing': 'Nothing recorded yet.',
+    'report.export': 'Export',
+    'report.export.xlsx': 'Excel Spreadsheet',
+    'report.export.csv': 'CSV File',
+    'report.export.footer': 'Exports this show’s leads. Share to Mail, AirDrop or Files.',
+
+    'settings.general': 'General',
+    'settings.language': 'Language',
+    'settings.language.auto': 'Automatic',
+    'settings.company': 'Your company',
+    'settings.company.placeholder': 'Used in the consent line',
+    'settings.company.footer': 'Stored only on this device.',
+    'settings.shows': 'Shows',
+    'settings.addShow': 'Add Show',
+    'settings.options': 'Options',
+    'settings.options.business': 'Trade show interests',
+    'settings.options.career': 'Career fair: looking for',
+    'settings.options.followups': 'Follow-up actions',
+    'settings.options.add': 'Add option',
+    'settings.options.footer': 'Changes apply to new and edited leads. Existing leads keep their choices.',
+    'settings.data': 'Data',
+    'settings.backup': 'Back Up All Data',
+    'settings.restore': 'Restore from Backup',
+    'settings.restored': 'Restored {leads} leads',
+    'settings.restoreFailed': 'That file isn’t a LeadLog backup.',
+    'settings.storage': 'Storage',
+    'settings.storage.persisted': 'Kept permanently',
+    'settings.storage.temporary': 'May be cleared by the system',
+    'settings.data.footer': 'Everything stays on this phone. Back up after each show and keep the file somewhere safe.',
+    'settings.about': 'About',
+    'settings.version': 'Version',
+    'settings.licenses': 'Open-source licences',
+    'settings.licenses.body': 'QR decoding by jsQR (Apache License 2.0).',
+
+    'update.available': 'A new version is ready.',
+    'update.reload': 'Update',
+
+    'export.date': 'Date',
+    'export.time': 'Time',
+    'export.hour': 'Hour',
+    'export.sheet.leads': 'Leads',
+    'export.sheet.hours': 'Leads by hour',
+    'export.yes': 'Yes',
+    'export.no': 'No'
+  },
+
+  cs: {
+    'app.name': 'LeadLog',
+
+    'tab.capture': 'Záznam',
+    'tab.leads': 'Kontakty',
+    'tab.report': 'Přehled',
+    'tab.settings': 'Nastavení',
+
+    'common.cancel': 'Zrušit',
+    'common.save': 'Uložit',
+    'common.done': 'Hotovo',
+    'common.delete': 'Smazat',
+    'common.add': 'Přidat',
+    'common.close': 'Zavřít',
+    'common.none': 'Žádné',
+    'common.today': 'Dnes',
+
+    'show.none.title': 'Založte první akci',
+    'show.none.body': 'Každá výstava má vlastní kontakty a přehled.',
+    'show.new': 'Nová akce',
+    'show.edit': 'Upravit akci',
+    'show.name': 'Název',
+    'show.name.placeholder': 'Název výstavy',
+    'show.type': 'Typ',
+    'show.type.business': 'Veletrh',
+    'show.type.career': 'Veletrh pracovních příležitostí',
+    'show.switch': 'Přepnout akci',
+    'show.delete': 'Smazat akci',
+    'show.delete.confirm': 'Smazat „{name}“? Z telefonu se odstraní {count} kontaktů.',
+
+    'capture.leadsToday': 'Kontakty dnes',
+    'capture.leadsTotal': 'Kontakty na akci',
+    'capture.scan': 'Načíst visačku',
+    'capture.newLead': 'Nový kontakt',
+    'capture.recent': 'Poslední kontakty',
+    'capture.recent.empty': 'Uložené kontakty se zobrazí zde.',
+
+    'lead.new': 'Nový kontakt',
+    'lead.edit': 'Kontakt',
+    'lead.section.contact': 'Kontakt',
+    'lead.section.student': 'Student',
+    'lead.name': 'Jméno',
+    'lead.company': 'Firma',
+    'lead.jobTitle': 'Pozice',
+    'lead.country': 'Země',
+    'lead.email': 'E-mail',
+    'lead.phone': 'Telefon',
+    'lead.school': 'Škola',
+    'lead.field': 'Obor',
+    'lead.year': 'Ročník nebo rok absolvování',
+    'lead.linkedin': 'LinkedIn',
+    'lead.interests.business': 'Zájem o',
+    'lead.interests.career': 'Hledá',
+    'lead.followups': 'Další krok',
+    'lead.priority': 'Priorita',
+    'lead.priority.hot': 'Vysoká',
+    'lead.priority.warm': 'Střední',
+    'lead.priority.cold': 'Nízká',
+    'lead.notes': 'Poznámky',
+    'lead.notes.placeholder': 'Na co se ptali, množství, termíny',
+    'lead.consent': 'Souhlasí s kontaktováním',
+    'lead.consent.footer.company': 'Souhlasí, že je {company} v této věci kontaktuje.',
+    'lead.consent.footer.generic': 'Souhlasí, že je v této věci kontaktujeme.',
+    'lead.followedUp': 'Vyřízeno',
+    'lead.photo': 'Fotka',
+    'lead.photo.add': 'Přidat fotku',
+    'lead.photo.replace': 'Nahradit fotku',
+    'lead.photo.remove': 'Odstranit fotku',
+    'lead.photo.footer': 'Vizitka, životopis nebo cokoli, co se ke kontaktu hodí.',
+    'lead.badge': 'Kód visačky',
+    'lead.badge.footer': 'Visačka obsahuje jen identifikátor, ne kontaktní údaje. Po akci ho spárujte s exportem od pořadatele.',
+    'lead.delete': 'Smazat kontakt',
+    'lead.delete.confirm': 'Kontakt bude z tohoto telefonu smazán.',
+    'lead.required': 'Vyplňte aspoň jméno, firmu, školu, e-mail nebo telefon.',
+    'lead.emailInvalid': 'Zkontrolujte e-mailovou adresu.',
+    'lead.saved': 'Kontakt uložen',
+    'lead.updated': 'Změny uloženy',
+    'lead.deleted': 'Kontakt smazán',
+    'lead.added': 'Přidáno {date}',
+
+    'scan.title': 'Načíst visačku',
+    'scan.hint': 'Namiřte fotoaparát na QR kód na visačce.',
+    'scan.photo': 'Místo toho vyfotit',
+    'scan.noCamera': 'Fotoaparát není dostupný. Kód místo toho vyfoťte.',
+    'scan.denied': 'Přístup k fotoaparátu je vypnutý. Povolte ho v Nastavení, nebo kód vyfoťte.',
+    'scan.notFound': 'Na fotce se nenašel QR kód. Zkuste to blíž a při lepším světle.',
+    'scan.duplicate': 'Už načteno v {time}',
+    'scan.idOnly': 'Kód visačky uložen',
+
+    'leads.search': 'Hledat',
+    'leads.filter.all': 'Vše',
+    'leads.filter.hot': 'Vysoká',
+    'leads.filter.todo': 'K vyřízení',
+    'leads.empty': 'Zatím žádné kontakty',
+    'leads.empty.body': 'Kontakty z této akce se zobrazí zde.',
+    'leads.noMatch': 'Nic neodpovídá',
+
+    'report.leads': 'Kontakty',
+    'report.hot': 'Vysoká priorita',
+    'report.consent': 'Se souhlasem',
+    'report.todo': 'K vyřízení',
+    'report.byHour': 'Kontakty podle hodin',
+    'report.interests.business': 'Zájem',
+    'report.interests.career': 'Hledají',
+    'report.countries': 'Země',
+    'report.schools': 'Školy',
+    'report.nothing': 'Zatím nic.',
+    'report.export': 'Export',
+    'report.export.xlsx': 'Tabulka Excel',
+    'report.export.csv': 'Soubor CSV',
+    'report.export.footer': 'Exportuje kontakty této akce. Sdílejte přes Mail, AirDrop nebo Soubory.',
+
+    'settings.general': 'Obecné',
+    'settings.language': 'Jazyk',
+    'settings.language.auto': 'Automaticky',
+    'settings.company': 'Vaše firma',
+    'settings.company.placeholder': 'Použije se u souhlasu',
+    'settings.company.footer': 'Uloženo jen v tomto zařízení.',
+    'settings.shows': 'Akce',
+    'settings.addShow': 'Přidat akci',
+    'settings.options': 'Možnosti',
+    'settings.options.business': 'Veletrh: zájem o',
+    'settings.options.career': 'Pracovní veletrh: hledá',
+    'settings.options.followups': 'Další kroky',
+    'settings.options.add': 'Přidat možnost',
+    'settings.options.footer': 'Změny platí pro nové a upravené kontakty. Stávající si ponechají svůj výběr.',
+    'settings.data': 'Data',
+    'settings.backup': 'Zálohovat vše',
+    'settings.restore': 'Obnovit ze zálohy',
+    'settings.restored': 'Obnoveno {leads} kontaktů',
+    'settings.restoreFailed': 'Tento soubor není záloha LeadLogu.',
+    'settings.storage': 'Úložiště',
+    'settings.storage.persisted': 'Trvalé',
+    'settings.storage.temporary': 'Systém ho může vymazat',
+    'settings.data.footer': 'Vše zůstává v tomto telefonu. Po každé akci zálohujte a soubor si uložte.',
+    'settings.about': 'O aplikaci',
+    'settings.version': 'Verze',
+    'settings.licenses': 'Open-source licence',
+    'settings.licenses.body': 'Čtení QR kódů: jsQR (Apache License 2.0).',
+
+    'update.available': 'Je připravená nová verze.',
+    'update.reload': 'Aktualizovat',
+
+    'export.date': 'Datum',
+    'export.time': 'Čas',
+    'export.hour': 'Hodina',
+    'export.sheet.leads': 'Kontakty',
+    'export.sheet.hours': 'Kontakty podle hodin',
+    'export.yes': 'Ano',
+    'export.no': 'Ne'
+  }
+};
+
+export const LANGUAGES = [
+  { code: 'auto', labelKey: 'settings.language.auto' },
+  { code: 'en', label: 'English' },
+  { code: 'cs', label: 'Čeština' }
+];
+
+let current = 'en';
+
+/** Resolve a stored preference ('auto' | 'en' | 'cs') to an available language. */
+export function resolveLanguage(pref) {
+  if (pref === 'en' || pref === 'cs') return pref;
+  const langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+  return langs.some((l) => String(l).toLowerCase().startsWith('cs')) ? 'cs' : 'en';
+}
+
+export function setLanguage(pref) {
+  current = resolveLanguage(pref);
+  document.documentElement.lang = current;
+  return current;
+}
+
+export function language() {
+  return current;
+}
+
+/** Translate a key, filling {placeholders}. Falls back to English, then to the key. */
+export function t(key, vars) {
+  const table = STRINGS[current] || STRINGS.en;
+  let text = table[key] ?? STRINGS.en[key] ?? key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) text = text.split(`{${k}}`).join(String(v));
+  }
+  return text;
+}
