@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>LeadLog</title>
+  <meta name="description" content="Capture leads at exhibitions and career fairs. Works offline; data stays on the device.">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="LeadLog">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="nav-bg glass" aria-hidden="true"></div>
+    <div class="nav-title" id="nav-title" aria-hidden="true"></div>
+  </header>
+
+  <main class="screen" id="screen" role="tabpanel" aria-live="polite"></main>
+
+  <nav class="tabbar glass" id="tabbar" role="tablist" aria-label="Sections"></nav>
+
+  <div class="toast glass" id="toast" role="status" aria-live="polite"></div>
+
+  <noscript>
+    <p class="empty">LeadLog needs JavaScript to run.</p>
+  </noscript>
+</body>
+</html>
