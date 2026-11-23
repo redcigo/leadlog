@@ -181,15 +181,36 @@ function parseBizCard(text) {
 
 /* ---------- Plain or delimited text ---------- */
 
+/**
+ * A phone number inside free text: at least 8 digits, and not glued to letters
+ * or digits on either side (so "ECOC26-104233" is not read as "26-104233").
+ */
+function findPhone(text) {
+  const re = new RegExp(PHONE_RE.source, 'g');
+  let match;
+  while ((match = re.exec(text))) {
+    const before = text[match.index - 1] || '';
+    const after = text[match.index + match[0].length] || '';
+    if (/[\p{L}\d]/u.test(before) || /[\p{L}\d]/u.test(after)) continue;
+    // Numbers labelled as an ID ("ID 26-104233", "No. 123456789") are not phone numbers.
+    if (/(?:^|[^\p{L}])(?:id|no|nr|č|code|k[óo]d|badge|ticket)\.?:?\s*#?\s*$/iu.test(text.slice(0, match.index))) continue;
+    if (match[0].replace(/\D/g, '').length >= 8) return match[0];
+  }
+  return null;
+}
+
 function parsePlain(raw) {
   const fields = {};
   const email = EMAIL_RE.exec(raw);
   if (email) fields.email = email[0];
-  const phone = PHONE_RE.exec(raw.replace(EMAIL_RE, ''));
-  if (phone && phone[0].replace(/\D/g, '').length >= 8) fields.phone = phone[0];
-
-  // Delimited badges, e.g. "12345^Jane^Doe^Manager^Company^phone^web^email"
   const delimiter = ['^', '|', '\t'].find((d) => raw.includes(d));
+  // A single word with no email or delimiter is a badge ID, even when it is all digits,
+  // unless it starts with + like an international phone number.
+  const singleToken = !email && !delimiter && !/\s/.test(raw) && !raw.startsWith('+');
+  const phone = singleToken ? null : findPhone(raw.replace(EMAIL_RE, ' '));
+  if (phone) fields.phone = phone;
+
+  // Delimited badges, e.g. "12345^Jane^Doe^Manager^Company^phone^web^email
   if (delimiter && (fields.email || fields.phone)) {
     const parts = raw.split(delimiter).map((p) => p.trim()).filter(Boolean);
     const words = parts.filter((p) => /^[\p{L}][\p{L}' .-]*$/u.test(p) && !EMAIL_RE.test(p));

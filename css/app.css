@@ -137,6 +137,8 @@ body::before {
 button, input, textarea, select { font: inherit; letter-spacing: inherit; color: inherit; }
 button { cursor: pointer; }
 [hidden] { display: none !important; }
+/* Set while a full-screen layer (welcome, scanner) covers the app. */
+html.locked, html.locked body { overflow: hidden; }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--tint) 55%, transparent); outline-offset: 2px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
@@ -242,16 +244,18 @@ body.receded .screen { transform: scale(0.94); filter: brightness(0.92); }
 }
 .subtitle { color: var(--label-2); margin: 0 4px 18px; font-size: 15px; letter-spacing: -0.24px; }
 
-.title-row { display: flex; align-items: center; gap: 12px; margin: 4px 4px 2px; min-width: 0; }
-.title-row .large-title { margin: 0; }
-.show-logo {
-  width: 44px;
-  height: 44px;
+/* Show name with the show's logo above it, at the logo's own shape. */
+.show-header { margin: 4px 4px 2px; min-width: 0; }
+.show-header .large-title { margin: 0; }
+.show-banner {
+  display: block;
+  width: auto;
+  height: auto;
+  max-height: 80px;
+  max-width: min(72%, 320px);
+  margin: 2px 0 10px;
   border-radius: 12px;
-  object-fit: contain;
-  background: var(--bg-2);
-  flex: none;
-  box-shadow: 0 1px 3px rgba(8, 50, 58, 0.12);
+  animation: fadeIn 0.3s ease both;
 }
 .title-button {
   display: inline-flex;
@@ -1022,6 +1026,7 @@ body.receded .page.in { transform: scale(0.94); filter: brightness(0.92); }
   inset: 0;
   z-index: 90;
   overflow-y: auto;
+  overscroll-behavior: none;
   padding: calc(var(--safe-top) + 28px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left));
   display: flex;
   flex-direction: column;
@@ -1038,6 +1043,12 @@ body.receded .page.in { transform: scale(0.94); filter: brightness(0.92); }
 .welcome > * { width: 100%; max-width: 520px; margin-left: auto; margin-right: auto; }
 .welcome .hero { text-align: center; padding: 4px 8px 26px; }
 .welcome .hero .illustration { margin: 0 auto 6px; width: min(260px, 76%); }
+.welcome .section { margin-bottom: 24px; }
+@media (max-height: 760px) {
+  .welcome .hero { padding-bottom: 16px; }
+  .welcome .hero .illustration { width: min(200px, 60%); }
+  .welcome .hero h1 { font-size: 30px; line-height: 36px; }
+}
 .welcome .hero h1 { margin: 0 0 8px; font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: 0.37px; }
 .welcome .hero p { margin: 0 auto; color: var(--label-2); max-width: 32ch; }
 .welcome .continue { margin-top: auto; padding-top: 8px; display: grid; }

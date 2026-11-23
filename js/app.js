@@ -18,7 +18,7 @@ import {
 import { buildShowFile, readShowFile, planMerge, encodeLeadQr, decodeLeadQr, sameShow, LEAD_QR_PREFIX } from './sharing.js';
 import { readTable, detectColumns, buildEntries, findEntry, fillFromEntry } from './roster.js';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 
 /* ---------- Defaults (neutral; edit them in Settings) ---------- */
 
@@ -232,11 +232,13 @@ function showWelcome() {
       renderTabbar();
       render();
       root.classList.add('leaving');
-      setTimeout(() => { root.remove(); resolve(); }, reducedMotion() ? 50 : 450);
+      setTimeout(() => { root.remove(); document.documentElement.classList.remove('locked'); resolve(); }, reducedMotion() ? 50 : 450);
     }
 
     draw();
     document.body.append(root);
+    // The app underneath must not scroll while the welcome screen covers it.
+    document.documentElement.classList.add('locked');
   });
 }
 
@@ -726,6 +728,7 @@ async function openScanner() {
     scanner.stop();
     document.removeEventListener('visibilitychange', onVisible);
     if (permission) permission.onchange = null;
+    document.documentElement.classList.remove('locked');
     animate(overlay, [{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease' }).then(() => {
       overlay.remove();
       if (after) after();
@@ -828,6 +831,7 @@ async function openScanner() {
   }
 
   document.body.append(overlay);
+  document.documentElement.classList.add('locked');
   animate(overlay, [{ opacity: 0, transform: 'scale(1.04)' }, { opacity: 1, transform: 'none' }], { duration: 320 });
 
   permission = await cameraPermission();
@@ -879,8 +883,8 @@ function showLogo(show, className) {
 }
 
 function showTitle(show) {
-  return h('div', { class: 'title-row' },
-    showLogo(show, 'show-logo'),
+  return h('div', { class: 'show-header' },
+    showLogo(show, 'show-banner'),
     h('button', { type: 'button', class: 'title-button', 'aria-label': `${show.name}. ${t('show.switch')}`, onClick: openShowPicker },
       h('h1', { class: 'large-title', text: show.name }), icon('chevronDown', 'chevron')));
 }
@@ -1548,10 +1552,25 @@ function registerServiceWorker() {
   });
 }
 
+/* ---------- Status bar colour ---------- */
+
+/**
+ * iPhone Home Screen apps colour the status bar from theme-color but ignore
+ * per-mode (media) variants, so one value is kept in step with light/dark mode.
+ */
+function syncStatusBar() {
+  const dark = window.matchMedia('(prefers-color-scheme: dark)');
+  const meta = document.getElementById('theme-color');
+  const apply = () => { if (meta) meta.setAttribute('content', dark.matches ? '#061c21' : '#e8f1f2'); };
+  apply();
+  dark.addEventListener('change', apply);
+}
+
 /* ---------- Start ---------- */
 
 async function start() {
   installMotion();
+  syncStatusBar();
   try {
     await loadAll();
   } catch (err) {
