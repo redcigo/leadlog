@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'leadlog';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 /** @type {Promise<IDBDatabase> | null} */
 let opening = null;
@@ -13,13 +13,17 @@ function open() {
   if (opening) return opening;
   opening = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
-      db.createObjectStore('shows', { keyPath: 'id' });
-      const leads = db.createObjectStore('leads', { keyPath: 'id' });
-      leads.createIndex('showId', 'showId');
-      db.createObjectStore('photos', { keyPath: 'id' });
-      db.createObjectStore('settings', { keyPath: 'key' });
+      if (event.oldVersion < 1) {
+        db.createObjectStore('shows', { keyPath: 'id' });
+        const leads = db.createObjectStore('leads', { keyPath: 'id' });
+        leads.createIndex('showId', 'showId');
+        db.createObjectStore('photos', { keyPath: 'id' });
+        db.createObjectStore('settings', { keyPath: 'key' });
+      }
+      // Version 2: the organiser's lead list for a show, used to match badge codes.
+      if (event.oldVersion < 2) db.createObjectStore('rosters', { keyPath: 'showId' });
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -83,14 +87,17 @@ export async function putMany(items) {
   });
 }
 
-/** Delete a show together with its leads and their photos. */
+/** Delete a show together with its leads, photos, logo and organiser list. */
 export async function removeShow(showId) {
-  return transact(['shows', 'leads', 'photos'], 'readwrite', async (tx) => {
+  return transact(['shows', 'leads', 'photos', 'rosters'], 'readwrite', async (tx) => {
+    const show = await done(tx.objectStore('shows').get(showId));
     const leads = await done(tx.objectStore('leads').index('showId').getAll(showId));
     for (const lead of leads) {
       if (lead.photoId) tx.objectStore('photos').delete(lead.photoId);
       tx.objectStore('leads').delete(lead.id);
     }
+    if (show && show.logoId) tx.objectStore('photos').delete(show.logoId);
+    tx.objectStore('rosters').delete(showId);
     tx.objectStore('shows').delete(showId);
   });
 }

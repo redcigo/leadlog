@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const CACHE = `leadlog-${VERSION}`;
 const FILES = [
   './',
@@ -20,7 +20,13 @@ const FILES = [
   './js/scanner.js',
   './js/qr-worker.js',
   './js/export.js',
+  './js/ui.js',
+  './js/illustrations.js',
+  './js/sharing.js',
+  './js/roster.js',
+  './js/qr-code.js',
   './vendor/jsqr.js',
+  './vendor/qrcode.mjs',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',

@@ -14,14 +14,14 @@ function getWorker() {
       const resolve = pending.get(event.data.id);
       if (resolve) {
         pending.delete(event.data.id);
-        resolve(event.data.text);
+        resolve(event.data);
       }
     };
   }
   return worker;
 }
 
-/** Decode one frame of pixels. Resolves to the text or null. */
+/** Decode one frame of pixels. Resolves to {text, corners} (text is null when nothing was found). */
 function decode(imageData, thorough) {
   const id = nextId++;
   return new Promise((resolve) => {
@@ -33,7 +33,7 @@ function decode(imageData, thorough) {
   });
 }
 
-/** Draw a source into a canvas no larger than maxSide and return its pixels. */
+/** Draw a source into a canvas no larger than maxSide and return its pixels and scale. */
 function pixelsFrom(source, sourceWidth, sourceHeight, maxSide) {
   const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
   const width = Math.max(1, Math.round(sourceWidth * scale));
@@ -43,15 +43,20 @@ function pixelsFrom(source, sourceWidth, sourceHeight, maxSide) {
   canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(source, 0, 0, width, height);
-  return ctx.getImageData(0, 0, width, height);
+  const pixels = ctx.getImageData(0, 0, width, height);
+  pixels.scale = scale;
+  return pixels;
 }
 
 /**
  * Live camera scanner bound to a <video> element.
  * Usage: const s = new CameraScanner(video, onCode); await s.start(); s.stop();
+ * When a code is found the preview freezes on that frame (so the app can show
+ * where the code was) and onCode receives the text and the code's corners in
+ * video pixels. Call stop() afterwards to release the camera.
  */
 export class CameraScanner {
-  /** @param {HTMLVideoElement} video @param {(text: string) => void} onCode */
+  /** @param {HTMLVideoElement} video @param {(text: string, corners: {x:number,y:number}[]|null) => void} onCode */
   constructor(video, onCode) {
     this.video = video;
     this.onCode = onCode;
@@ -60,7 +65,7 @@ export class CameraScanner {
     this.busy = false;
   }
 
-  /** @returns {Promise<'ok'|'denied'|'unavailable'>} */
+  /** @returns {Promise<'ok'|'denied'|'unavailable'>} 'denied' means the camera permission was refused. */
   async start() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return 'unavailable';
     try {
@@ -86,11 +91,13 @@ export class CameraScanner {
     if (!this.busy && video.readyState >= 2 && video.videoWidth) {
       this.busy = true;
       const frame = pixelsFrom(video, video.videoWidth, video.videoHeight, 720);
-      decode(frame, false).then((text) => {
+      const scale = frame.scale;
+      decode(frame, false).then(({ text, corners }) => {
         this.busy = false;
         if (text && this.running) {
-          this.stop();
-          this.onCode(text);
+          this.running = false;
+          try { video.pause(); } catch { /* keep going without the freeze */ }
+          this.onCode(text, corners ? corners.map((p) => ({ x: p.x / scale, y: p.y / scale })) : null);
         }
       });
     }
@@ -117,23 +124,38 @@ export async function decodeImageFile(file) {
   }
   // Try a sharp large version first, then a smaller one (helps with noisy photos).
   for (const side of [1600, 900]) {
-    const text = await decode(pixelsFrom(bitmap, bitmap.width, bitmap.height, side), true);
+    const { text } = await decode(pixelsFrom(bitmap, bitmap.width, bitmap.height, side), true);
     if (text) { bitmap.close && bitmap.close(); return text; }
   }
   bitmap.close && bitmap.close();
   return null;
 }
 
-/** Downscale a photo for storage: JPEG, longest side 1600 px. */
-export async function compressPhoto(file) {
+/**
+ * Downscale a photo for storage: JPEG, longest side maxSide px.
+ * With keepTransparency, PNG and other transparent images stay PNG (for logos).
+ */
+export async function compressPhoto(file, { maxSide = 1600, keepTransparency = false } = {}) {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const png = keepTransparency && /png|webp|gif|svg/i.test(file.type || '');
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
   canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close && bitmap.close();
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not process photo'))), 'image/jpeg', 0.82);
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not process photo'))), png ? 'image/png' : 'image/jpeg', 0.82);
   });
+}
+
+/**
+ * The camera permission state, where the browser reports it.
+ * @returns {Promise<PermissionStatus|null>} null when the browser can't tell (the system asks when the camera starts)
+ */
+export async function cameraPermission() {
+  try {
+    if (navigator.permissions && navigator.permissions.query) return await navigator.permissions.query({ name: 'camera' });
+  } catch { /* 'camera' isn't a known permission name in this browser */ }
+  return null;
 }

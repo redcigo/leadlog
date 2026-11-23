@@ -22,12 +22,17 @@ function textFrom(code) {
 self.onmessage = (event) => {
   const { id, width, height, buffer, thorough } = event.data;
   let text = null;
+  let corners = null;
   try {
     const pixels = new Uint8ClampedArray(buffer);
     const code = jsQR(pixels, width, height, { inversionAttempts: thorough ? 'attemptBoth' : 'dontInvert' });
-    text = code ? textFrom(code) : null;
+    if (code) {
+      text = textFrom(code);
+      const l = code.location;
+      corners = [l.topLeftCorner, l.topRightCorner, l.bottomRightCorner, l.bottomLeftCorner].map((p) => ({ x: p.x, y: p.y }));
+    }
   } catch {
     text = null;
   }
-  self.postMessage({ id, text: text || null });
+  self.postMessage({ id, text: text || null, corners: text ? corners : null });
 };

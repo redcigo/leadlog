@@ -195,7 +195,9 @@ export function fileSafe(text) {
 /**
  * Offer a file through the system share sheet (Mail, AirDrop, Files on iPhone).
  * Falls back to a normal download where sharing files isn't supported.
- * @returns {Promise<'shared'|'downloaded'|'cancelled'>}
+ * 'blocked' means the browser wants a fresh tap before it opens the share sheet
+ * (preparing the file took too long); call again from a new tap.
+ * @returns {Promise<'shared'|'downloaded'|'cancelled'|'blocked'>}
  */
 export async function shareFile(blob, filename) {
   const file = new File([blob], filename, { type: blob.type });
@@ -205,6 +207,7 @@ export async function shareFile(blob, filename) {
       return 'shared';
     } catch (err) {
       if (err && err.name === 'AbortError') return 'cancelled';
+      if (err && err.name === 'NotAllowedError') return 'blocked';
       // Any other failure: fall through to a download.
     }
   }
