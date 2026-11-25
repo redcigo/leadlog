@@ -18,7 +18,7 @@ import {
 import { buildShowFile, readShowFile, planMerge, encodeLeadQr, decodeLeadQr, sameShow, LEAD_QR_PREFIX } from './sharing.js';
 import { readTable, detectColumns, buildEntries, findEntry, fillFromEntry } from './roster.js';
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.3.1';
 
 /* ---------- Defaults (neutral; edit them in Settings) ---------- */
 
@@ -794,6 +794,7 @@ async function openScanner() {
 
   const shutter = h('button', { type: 'button', class: 'shutter', 'aria-label': t('scan.card.capture'), hidden: mode !== 'card', onClick: () => captureCard() });
   const photoLabel = h('span', { text: mode === 'card' ? t('scan.card.choose') : t('scan.photo') });
+  // In card mode the photo button offers the iPhone's own camera or the photo library.
   const photoButton = h('button', { type: 'button', class: 'text-button', onClick: () => photoPicker.click() }, photoLabel);
   const modes = segmented([
     { value: 'badge', label: t('scan.mode.badge') },
@@ -919,7 +920,10 @@ async function openScanner() {
 
   async function captureCard() {
     if (!live || reading || found) return;
-    const canvas = scanner.capture(frameInVideo(0.12));
+    reading = true;
+    shutter.disabled = true;
+    const canvas = await scanner.captureSharpest(frameInVideo(0.12));
+    reading = false;
     scanner.freeze();
     if (!reducedMotion()) animate(flash, [{ opacity: 0.85 }, { opacity: 0 }], { duration: 320, easing: 'ease-out' });
     readCard(await canvasToBlob(canvas), canvas);

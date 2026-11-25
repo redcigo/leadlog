@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 const CACHE = `leadlog-${VERSION}`;
 // Business card reading (about 10 MB) is kept in its own cache, filled the first
 // time it is used, so app updates don't download it again.

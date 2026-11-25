@@ -107,17 +107,78 @@ export class CameraScanner {
     requestAnimationFrame(() => this.loop());
   }
 
-  /** Call onReady once the first full-size frame is on screen (avoids a small preview flashing first). */
+  /**
+   * Call onReady once the camera picture has settled. iPhone first sends a few
+   * frames at a smaller size and then switches resolution, which shows as a small
+   * window or a jump; the picture is revealed only after the size stops changing.
+   */
   whenShowing(onReady) {
     const video = this.video;
-    const ready = () => requestAnimationFrame(() => onReady());
-    if (typeof video.requestVideoFrameCallback === 'function') {
-      const wait = () => video.requestVideoFrameCallback(() => (video.videoWidth ? ready() : wait()));
-      wait();
-    } else {
-      const check = () => (video.videoWidth && video.readyState >= 2 ? ready() : setTimeout(check, 50));
-      check();
+    let timer = null;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      video.removeEventListener('resize', settle);
+      requestAnimationFrame(() => onReady());
+    };
+    const settle = () => {
+      clearTimeout(timer);
+      if (video.videoWidth && video.readyState >= 2) timer = setTimeout(finish, 450);
+      else timer = setTimeout(settle, 60);
+    };
+    video.addEventListener('resize', settle);
+    settle();
+    setTimeout(finish, 2500); // never keep the picture hidden for long
+  }
+
+  /** Sharpness of a frame region: variance of a simple edge filter on a small grey copy. */
+  sharpness(rect) {
+    const video = this.video;
+    const w = 320;
+    const h = Math.max(1, Math.round((rect.height / rect.width) * w));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, rect.x, rect.y, rect.width, rect.height, 0, 0, w, h);
+    const { data } = ctx.getImageData(0, 0, w, h);
+    const grey = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) grey[i] = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+    let sum = 0;
+    let sumSq = 0;
+    let n = 0;
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x;
+        const lap = grey[i - 1] + grey[i + 1] + grey[i - w] + grey[i + w] - 4 * grey[i];
+        sum += lap;
+        sumSq += lap * lap;
+        n++;
+      }
     }
+    const mean = sum / n;
+    return sumSq / n - mean * mean;
+  }
+
+  /**
+   * Capture the sharpest of a few consecutive frames (hands move when tapping),
+   * cropped to rect in video pixels.
+   */
+  async captureSharpest(area, count = 5) {
+    const video = this.video;
+    // Keep the area inside the picture (Safari won't draw from outside it).
+    const x = Math.max(0, area.x);
+    const y = Math.max(0, area.y);
+    const rect = { x, y, width: Math.min(video.videoWidth - x, area.width), height: Math.min(video.videoHeight - y, area.height) };
+    let best = null;
+    let bestScore = -1;
+    for (let i = 0; i < count; i++) {
+      if (i) await new Promise((resolve) => (typeof video.requestVideoFrameCallback === 'function' ? video.requestVideoFrameCallback(() => resolve()) : setTimeout(resolve, 40)));
+      const score = this.sharpness(rect);
+      if (score > bestScore) { bestScore = score; best = this.capture(rect); }
+    }
+    return best;
   }
 
   /** Copy part of the current frame (rect in video pixels) into a canvas. */
