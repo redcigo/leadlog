@@ -243,6 +243,23 @@ body.receded .screen { transform: scale(0.94); filter: brightness(0.92); }
   overflow-wrap: anywhere;
 }
 .subtitle { color: var(--label-2); margin: 0 4px 18px; font-size: 15px; letter-spacing: -0.24px; }
+/* The show name under Leads and Report: tap to switch shows. */
+.subtitle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 8px);
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  text-align: left;
+  color: var(--tint);
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+.subtitle-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subtitle-button .chevron { width: 16px; height: 16px; flex: none; }
+.subtitle-button.pressed { opacity: 0.5; transition-duration: 0s; }
 
 /* Show name with the show's logo above it, at the logo's own shape. */
 .show-header { margin: 4px 4px 2px; min-width: 0; }
@@ -847,25 +864,39 @@ body.receded .page.in { transform: scale(0.94); filter: brightness(0.92); }
   --ill-glow: rgba(63, 167, 179, 0.14);
   --ill-spark: #74c7cf;
 }
-.scanner video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: filter 0.3s ease; }
+/* The picture stays hidden until the first full-size frame is ready, then fades in. */
+.scanner video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: filter 0.3s ease, opacity 0.3s ease; }
+.scanner video.live { opacity: 1; }
+.scanner .flash { position: absolute; inset: 0; z-index: 3; background: #fff; opacity: 0; pointer-events: none; }
 .scanner .frame {
   position: absolute;
   top: 50%;
   left: 50%;
   width: min(68vw, 300px);
-  aspect-ratio: 1;
+  height: min(68vw, 300px);
   transform: translate(-50%, -55%);
   border-radius: 32px;
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
   border: 2px solid rgba(255, 255, 255, 0.9);
-  transition: border-color 0.2s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+  transition: border-color 0.2s ease, box-shadow 0.3s ease, opacity 0.3s ease, width 0.5s var(--spring), height 0.5s var(--spring), border-radius 0.5s var(--spring);
 }
+/* Business card mode: a card-shaped frame (85 × 55 mm). */
+.scanner .frame.card {
+  width: min(88vw, 560px);
+  height: calc(min(88vw, 560px) / 1.55);
+  border-radius: 20px;
+}
+.scanner .frame.success {
+  border-color: var(--green);
+  border-width: 3px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55), 0 0 24px rgba(48, 209, 88, 0.6), inset 0 0 24px rgba(48, 209, 88, 0.35);
+}
+.scanner.busy .frame { animation: breathe 1.2s ease-in-out infinite; }
 .scanner .frame.searching { animation: breathe 2.4s ease-in-out infinite; }
 @keyframes breathe { 50% { border-color: rgba(255, 255, 255, 0.55); } }
 /* Found: the frame snaps onto the code and turns green. */
 .scanner .frame.locked {
   transform: none;
-  aspect-ratio: auto;
   left: var(--fx);
   top: var(--fy);
   width: var(--fw);
@@ -916,6 +947,41 @@ body.receded .page.in { transform: scale(0.94); filter: brightness(0.92); }
   justify-items: center;
   text-align: center;
 }
+/* Shutter for business cards, like the Camera app. */
+.scanner .shutter {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.95);
+  background: transparent;
+  padding: 0;
+  position: relative;
+  transition: transform 0.4s var(--spring), opacity 0.2s ease;
+}
+.scanner .shutter::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+}
+.scanner .shutter.pressed::after { transform: scale(0.88); }
+.scanner .shutter:disabled { opacity: 0.4; }
+.scanner .scan-modes { width: min(280px, 80vw); background: rgba(255, 255, 255, 0.14); }
+.scanner .scan-modes .thumb { background: rgba(255, 255, 255, 0.3); box-shadow: none; }
+.scanner .scan-modes button { color: #fff; }
+.scanner .text-button {
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 999px;
+  transition: background-color 0.2s ease;
+}
+.scanner .text-button.pressed { background: rgba(255, 255, 255, 0.15); }
 .scanner .hint { font-size: 17px; max-width: 30ch; margin: 0; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); transition: opacity 0.2s ease; }
 .scanner .glass { --glass: rgba(30, 30, 32, 0.5); --glass-edge: rgba(255, 255, 255, 0.2); --glass-shine: rgba(255, 255, 255, 0.18); color: #fff; }
 .scanner .button.glass { background: var(--glass); }
@@ -1075,7 +1141,7 @@ body.receded .page.in { transform: scale(0.94); filter: brightness(0.92); }
     scroll-behavior: auto !important;
   }
   .sheet, .sheet.open, .sheet.closing, .page, .action-sheet, .action-sheet.open, .toast, .toast.show,
-  .switch::after, .segmented .thumb, .tab-indicator, .screen, .navbar, .scanner .frame.locked {
+  .switch::after, .segmented .thumb, .tab-indicator, .screen, .navbar, .scanner .frame, .scanner .frame.locked {
     transition-duration: 0.15s !important;
     transition-timing-function: ease !important;
   }

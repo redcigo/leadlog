@@ -63,6 +63,8 @@ export class CameraScanner {
     this.stream = null;
     this.running = false;
     this.busy = false;
+    /** While true, frames are not searched for QR codes (business card mode). */
+    this.paused = false;
   }
 
   /** @returns {Promise<'ok'|'denied'|'unavailable'>} 'denied' means the camera permission was refused. */
@@ -71,7 +73,8 @@ export class CameraScanner {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        // Full HD helps when reading business cards; QR decoding downsizes frames anyway.
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       });
     } catch (err) {
       return err && (err.name === 'NotAllowedError' || err.name === 'SecurityError') ? 'denied' : 'unavailable';
@@ -88,7 +91,7 @@ export class CameraScanner {
   loop() {
     if (!this.running) return;
     const video = this.video;
-    if (!this.busy && video.readyState >= 2 && video.videoWidth) {
+    if (!this.busy && !this.paused && video.readyState >= 2 && video.videoWidth) {
       this.busy = true;
       const frame = pixelsFrom(video, video.videoWidth, video.videoHeight, 720);
       const scale = frame.scale;
@@ -103,6 +106,41 @@ export class CameraScanner {
     }
     requestAnimationFrame(() => this.loop());
   }
+
+  /** Call onReady once the first full-size frame is on screen (avoids a small preview flashing first). */
+  whenShowing(onReady) {
+    const video = this.video;
+    const ready = () => requestAnimationFrame(() => onReady());
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      const wait = () => video.requestVideoFrameCallback(() => (video.videoWidth ? ready() : wait()));
+      wait();
+    } else {
+      const check = () => (video.videoWidth && video.readyState >= 2 ? ready() : setTimeout(check, 50));
+      check();
+    }
+  }
+
+  /** Copy part of the current frame (rect in video pixels) into a canvas. */
+  capture(rect) {
+    const video = this.video;
+    const x = Math.max(0, Math.round(rect.x));
+    const y = Math.max(0, Math.round(rect.y));
+    const width = Math.min(video.videoWidth - x, Math.round(rect.width));
+    const height = Math.min(video.videoHeight - y, Math.round(rect.height));
+    // Small crops are enlarged: text recognition works best on letters about 30 px tall.
+    const scale = Math.max(1, Math.min(2, 1800 / width));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(video, x, y, width, height, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  freeze() { try { this.video.pause(); } catch { /* keep the live picture */ } }
+
+  resume() { try { this.video.play(); } catch { /* ignore */ } }
 
   stop() {
     this.running = false;

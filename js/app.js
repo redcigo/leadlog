@@ -18,7 +18,7 @@ import {
 import { buildShowFile, readShowFile, planMerge, encodeLeadQr, decodeLeadQr, sameShow, LEAD_QR_PREFIX } from './sharing.js';
 import { readTable, detectColumns, buildEntries, findEntry, fillFromEntry } from './roster.js';
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 
 /* ---------- Defaults (neutral; edit them in Settings) ---------- */
 
@@ -41,7 +41,7 @@ const SCAN_CONFIRM_MS = 700;
 /* ---------- State ---------- */
 
 const state = {
-  settings: { language: 'auto', userName: '', company: '', options: null, cameraAllowed: false },
+  settings: { language: 'auto', userName: '', company: '', options: null, cameraAllowed: false, scanMode: 'badge' },
   shows: [],
   showId: null,
   leads: [],
@@ -95,6 +95,8 @@ async function loadAll() {
   state.settings.userName = map.userName || '';
   state.settings.company = map.company || '';
   state.settings.cameraAllowed = Boolean(map.cameraAllowed);
+  state.settings.scanMode = map.scanMode || 'badge';
+  state.settings.readerReady = map.readerReady || '';
   state.settings.options = map.options || structuredClone(DEFAULT_OPTIONS[language()]);
   if (!map.options) await store.setSetting('options', state.settings.options);
   state.shows = shows.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -421,10 +423,19 @@ async function openShowPicker() {
 /* ---------- Lead editor ---------- */
 
 /**
+ * Lead fields a business card can fill, for each show type (card field → lead field).
+ */
+const CARD_FIELDS = {
+  business: { name: 'name', company: 'company', jobTitle: 'jobTitle', country: 'country', email: 'email', phone: 'phone' },
+  career: { name: 'name', company: 'school', email: 'email', phone: 'phone', linkedin: 'linkedin' }
+};
+
+/**
  * @param {object|null} lead existing lead, or null for a new one
  * @param {object} [prefill] values for a new lead (from a scan or a colleague)
+ * @param {{photoBlob?: Blob, fromCard?: boolean}} [extras] a photo to attach, and whether the details were read from a business card
  */
-function openLeadEditor(lead, prefill) {
+function openLeadEditor(lead, prefill, extras = {}) {
   const isNew = !lead;
   const showId = lead ? lead.showId : (prefill?.showId || state.showId);
   const show = showById(showId);
@@ -439,7 +450,7 @@ function openLeadEditor(lead, prefill) {
   const followups = new Set(data.followups || []);
   let priority = data.priority || 'warm';
   let photoId = data.photoId || null;
-  let newPhotoBlob = null;
+  let newPhotoBlob = extras.photoBlob || null;
   let removePhoto = false;
   let dirty = Boolean(prefill);
   const markDirty = () => { dirty = true; };
@@ -471,11 +482,49 @@ function openLeadEditor(lead, prefill) {
       removePhoto = false;
       markDirty();
       renderPhoto();
-      if (callout) collapse(callout, () => callout.remove());
-    } catch { toast(t('photo.unreadable')); }
+      return true;
+    } catch {
+      toast(t('photo.unreadable'));
+      return false;
+    }
   };
   const photoInput = fileInput('image/*', onPhoto);
-  const cardInput = fileInput('image/*', onPhoto, 'environment');
+  // After an ID-only badge: photograph the card, then read it.
+  const cardInput = fileInput('image/*', async (file) => {
+    if (!(await onPhoto(file))) return;
+    if (callout) collapse(callout, () => callout.remove());
+    fillFromCard();
+  }, 'environment');
+
+  /** Read the lead's photo as a business card and fill in fields that are still empty. */
+  let reading = false;
+  async function fillFromCard() {
+    if (reading) return;
+    const blob = newPhotoBlob || (photoId && !removePhoto ? (await store.get('photos', photoId))?.blob : null);
+    if (!blob) return;
+    reading = true;
+    renderPhoto();
+    try {
+      const { readLines } = await import('./card-reader.js');
+      const { parseCard } = await import('./card-parser.js');
+      const { fields: found } = parseCard(await readLines(blob), { language: language() });
+      let filled = 0;
+      for (const [from, to] of Object.entries(CARD_FIELDS[type])) {
+        const input = document.getElementById(`lead-${to}`);
+        if (!input || input.value.trim() || !found[from]) continue;
+        input.value = found[from];
+        filled++;
+        animate(input.closest('.row'), [{ backgroundColor: 'var(--tint-soft)' }, { backgroundColor: 'transparent' }], { duration: 1400, easing: 'ease-out' });
+      }
+      if (filled) markDirty();
+      toast(filled ? t('card.filled', { count: filled }) : t('card.nothingNew'));
+    } catch {
+      toast(t('card.failed'));
+    } finally {
+      reading = false;
+      renderPhoto();
+    }
+  }
 
   async function renderPhoto() {
     photoRowHost.textContent = '';
@@ -488,26 +537,34 @@ function openLeadEditor(lead, prefill) {
         h('img', { class: 'photo-thumb', src: url, alt: '' }),
         h('span', { class: 'row-label', text: t('lead.photo') }),
         icon('chevronRight', 'row-chevron')));
+      rows.push(h('button', { type: 'button', class: 'row action', disabled: reading, onClick: fillFromCard },
+        icon('scanText', 'row-chevron'), h('span', { class: 'row-label', text: reading ? t('card.reading') : t('card.fill') })));
       rows.push(h('button', { type: 'button', class: 'row action', text: t('lead.photo.replace'), onClick: () => photoInput.click() }));
       rows.push(h('button', { type: 'button', class: 'row destructive-text', text: t('lead.photo.remove'), onClick: () => { newPhotoBlob = null; removePhoto = true; markDirty(); renderPhoto(); } }));
     } else {
       rows.push(h('button', { type: 'button', class: 'row action', onClick: () => photoInput.click() },
         icon('camera', 'row-chevron'), h('span', { class: 'row-label', text: t('lead.photo.add') })));
     }
+    photoRowHost.textContent = '';
     photoRowHost.append(section(t('lead.photo'), rows, t('lead.photo.footer')));
   }
 
   const content = [];
 
+  // Details read from a business card: ask for a quick check.
   // Badge that only holds an ID: offer a business card photo straight away.
   let callout = null;
-  if (isNew && data.badgeCode && !data.badgeHasDetails && !photoId) {
+  if (isNew && extras.fromCard) {
+    callout = h('div', { class: 'callout' }, iconTile('scanText', 'brand'),
+      h('h3', { text: t('card.read.title') }), h('p', { text: t('card.read.body') }));
+    content.push(callout);
+  } else if (isNew && data.badgeCode && !data.badgeHasDetails && !photoId) {
     callout = data.matchedFromList
       ? h('div', { class: 'callout' }, iconTile('listImport', 'brand'),
         h('h3', { text: t('lead.matched.title') }), h('p', { text: t('lead.matched.body') }))
       : h('div', { class: 'callout' }, iconTile('camera', 'orange'),
         h('h3', { text: t('lead.idOnly.title') }), h('p', { text: t('lead.idOnly.body') }),
-        h('button', { type: 'button', class: 'callout-button', onClick: () => cardInput.click() }, icon('camera'), t('lead.idOnly.photo')));
+        h('button', { type: 'button', class: 'callout-button', onClick: () => { loadCardReader(); cardInput.click(); } }, icon('camera'), t('lead.idOnly.photo')));
     content.push(callout);
   }
 
@@ -685,36 +742,92 @@ function platform() {
   return 'other';
 }
 
+/** Start loading the business card reader in the background (it takes a moment the first time). */
+function loadCardReader() {
+  import('./card-reader.js').then((m) => m.loadReader()).catch(() => { /* tried again when needed */ });
+}
+
+/** Turn what was read from a business card into lead values for this show type. */
+function cardPrefill(found, showType) {
+  const prefill = {};
+  for (const [from, to] of Object.entries(CARD_FIELDS[showType])) if (found[from]) prefill[to] = found[from];
+  return prefill;
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.85));
+}
+
+/**
+ * The camera screen, with two modes:
+ * - badge: reads QR codes on badges continuously
+ * - card: photograph a business card and read the text on it
+ */
 async function openScanner() {
   if (!currentShow()) return;
+  let mode = state.settings.scanMode === 'card' ? 'card' : 'badge';
   const video = h('video', { playsinline: true, muted: true, autoplay: true, 'aria-hidden': 'true' });
-  const frame = h('div', { class: 'frame searching hidden', 'aria-hidden': 'true' });
+  const frame = h('div', { class: `frame searching hidden${mode === 'card' ? ' card' : ''}`, 'aria-hidden': 'true' });
   const hint = h('p', { class: 'hint', role: 'status', text: t('scan.starting') });
+  const flash = h('div', { class: 'flash', 'aria-hidden': 'true' });
   const panelHost = h('div');
   let closed = false;
   let found = false;
   let blocked = false;
+  let live = false;
+  let reading = false;
   let permission = null;
 
+  const hintFor = () => (mode === 'card' ? t('scan.card.hint') : t('scan.hint'));
+  const title = h('h2', { text: mode === 'card' ? t('scan.title.card') : t('scan.title') });
+
   const photoPicker = fileInput('image/*', async (file) => {
+    if (mode === 'card') {
+      try { readCard(await compressPhoto(file, { maxSide: 2000 }), null); } catch { toast(t('photo.unreadable')); }
+      return;
+    }
     hint.textContent = t('scan.reading');
     const text = await decodeImageFile(file);
     if (text) confirmFound(text, null);
     else hint.textContent = t('scan.notFound');
   }, 'environment');
 
+  const shutter = h('button', { type: 'button', class: 'shutter', 'aria-label': t('scan.card.capture'), hidden: mode !== 'card', onClick: () => captureCard() });
+  const photoLabel = h('span', { text: mode === 'card' ? t('scan.card.choose') : t('scan.photo') });
+  const photoButton = h('button', { type: 'button', class: 'text-button', onClick: () => photoPicker.click() }, photoLabel);
+  const modes = segmented([
+    { value: 'badge', label: t('scan.mode.badge') },
+    { value: 'card', label: t('scan.mode.card') }
+  ], mode, (value) => setMode(value), t('scan.mode'));
+  modes.classList.add('scan-modes');
+
   const overlay = h('div', { class: 'scanner', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('scan.title') },
-    video, frame, panelHost,
+    video, flash, frame, panelHost,
     h('div', { class: 'top' },
-      h('h2', { text: t('scan.title') }),
+      title,
       h('button', { type: 'button', class: 'icon-button glass', 'aria-label': t('common.close'), onClick: () => close() }, icon('close'))),
-    h('div', { class: 'bottom' },
-      hint,
-      h('button', { type: 'button', class: 'button glass', onClick: () => photoPicker.click() }, icon('camera'), t('scan.photo')),
-      photoPicker)
+    h('div', { class: 'bottom' }, hint, shutter, modes, photoButton, photoPicker)
   );
 
   const scanner = new CameraScanner(video, (text, corners) => confirmFound(text, corners));
+  scanner.paused = mode === 'card';
+
+  function setMode(value) {
+    if (value === mode || found || reading) return;
+    mode = value;
+    state.settings.scanMode = value;
+    store.setSetting('scanMode', value);
+    scanner.paused = value === 'card';
+    frame.classList.toggle('card', value === 'card');
+    shutter.hidden = value !== 'card';
+    photoLabel.textContent = value === 'card' ? t('scan.card.choose') : t('scan.photo');
+    title.textContent = value === 'card' ? t('scan.title.card') : t('scan.title');
+    photoPicker.toggleAttribute('capture', value !== 'card');
+    if (live) hint.textContent = hintFor();
+    if (value === 'card') loadCardReader();
+  }
+  photoPicker.toggleAttribute('capture', mode !== 'card');
+  if (mode === 'card') loadCardReader();
 
   function onVisible() {
     if (document.visibilityState !== 'visible' || !blocked || closed) return;
@@ -773,9 +886,15 @@ async function openScanner() {
     if (result === 'ok') {
       blocked = false;
       panelHost.textContent = '';
-      frame.classList.remove('hidden');
-      hint.textContent = t('scan.hint');
       if (!state.settings.cameraAllowed) { state.settings.cameraAllowed = true; store.setSetting('cameraAllowed', true); }
+      // Show the picture only once the first full-size frame is ready, then fade it in.
+      scanner.whenShowing(() => {
+        if (closed) return;
+        live = true;
+        video.classList.add('live');
+        frame.classList.remove('hidden');
+        if (!found && !reading) hint.textContent = hintFor();
+      });
     } else if (result === 'denied') {
       hint.textContent = '';
       const panel = panelHost.querySelector('.panel');
@@ -783,6 +902,66 @@ async function openScanner() {
       else showBlocked();
     } else {
       hint.textContent = t('scan.noCamera');
+    }
+  }
+
+  /** The frame's area in video pixels (the picture is scaled to cover the screen). */
+  function frameInVideo(margin) {
+    const box = overlay.getBoundingClientRect();
+    const r = frame.getBoundingClientRect();
+    const scale = Math.max(box.width / video.videoWidth, box.height / video.videoHeight);
+    const ox = (box.width - video.videoWidth * scale) / 2;
+    const oy = (box.height - video.videoHeight * scale) / 2;
+    const mx = r.width * margin;
+    const my = r.height * margin;
+    return { x: (r.left - mx - ox) / scale, y: (r.top - my - oy) / scale, width: (r.width + mx * 2) / scale, height: (r.height + my * 2) / scale };
+  }
+
+  async function captureCard() {
+    if (!live || reading || found) return;
+    const canvas = scanner.capture(frameInVideo(0.12));
+    scanner.freeze();
+    if (!reducedMotion()) animate(flash, [{ opacity: 0.85 }, { opacity: 0 }], { duration: 320, easing: 'ease-out' });
+    readCard(await canvasToBlob(canvas), canvas);
+  }
+
+  /** Read a business card photo; open the lead form with what was found. */
+  async function readCard(blob, canvas) {
+    if (reading || found || closed) return;
+    reading = true;
+    overlay.classList.add('busy');
+    shutter.disabled = true;
+    hint.textContent = t('card.reading');
+    try {
+      const reader = await import('./card-reader.js');
+      const { parseCard } = await import('./card-parser.js');
+      await reader.loadReader((m) => {
+        if (/loading|initializ/i.test(m.status || '') && m.progress < 1) hint.textContent = t('card.preparing');
+      });
+      hint.textContent = t('card.reading');
+      const { fields: read, found: count } = parseCard(await reader.readLines(canvas || blob), { language: language() });
+      if (closed) return;
+      if (!count) throw new Error('nothing');
+      found = true;
+      if (navigator.vibrate) navigator.vibrate(35);
+      overlay.classList.add('done');
+      hint.textContent = t('card.done');
+      frame.classList.remove('searching', 'hidden');
+      frame.classList.add('success');
+      const r = frame.getBoundingClientRect();
+      const check = h('div', { class: 'scan-check', 'aria-hidden': 'true' }, icon('check'));
+      check.style.setProperty('--cx', `${r.left + r.width / 2}px`);
+      check.style.setProperty('--cy', `${r.top + r.height / 2}px`);
+      overlay.append(check);
+      const prefill = cardPrefill(read, currentShow().type);
+      setTimeout(() => close(() => openLeadEditor(null, prefill, { photoBlob: blob, fromCard: true })), SCAN_CONFIRM_MS);
+    } catch {
+      if (closed) return;
+      hint.textContent = t('card.nothing');
+      scanner.resume();
+      reading = false;
+      shutter.disabled = false;
+      overlay.classList.remove('busy');
     }
   }
 
@@ -882,6 +1061,12 @@ function showLogo(show, className) {
   return show.logoId ? storedImage(show.logoId, className) : null;
 }
 
+/** The show name under a screen title; tap it to switch shows. */
+function showSwitcher(show) {
+  return h('button', { type: 'button', class: 'subtitle subtitle-button', 'aria-label': `${show.name}. ${t('show.switch')}`, onClick: openShowPicker },
+    h('span', { text: show.name }), icon('chevronDown', 'chevron'));
+}
+
 function showTitle(show) {
   return h('div', { class: 'show-header' },
     showLogo(show, 'show-banner'),
@@ -972,7 +1157,7 @@ function leadsScreen() {
 
   const out = [
     h('h1', { class: 'large-title', text: t('tab.leads') }),
-    h('p', { class: 'subtitle', text: show.name })
+    showSwitcher(show)
   ];
   if (!all.length) {
     out.push(emptyState('badge', t('leads.empty'), t('leads.empty.body')));
@@ -1055,7 +1240,7 @@ function reportScreen() {
   const show = currentShow();
   if (!show) return noShows(t('tab.report'));
   const leads = showLeads();
-  const header = [h('h1', { class: 'large-title', text: t('tab.report') }), h('p', { class: 'subtitle', text: show.name })];
+  const header = [h('h1', { class: 'large-title', text: t('tab.report') }), showSwitcher(show)];
   if (!leads.length) return [...header, emptyState('report', t('report.empty.title'), t('report.empty.body'))];
   const career = show.type === 'career';
   const hours = hourBuckets(leads).map((b) => ({ label: b.label, total: b.leads }));
@@ -1083,7 +1268,9 @@ function reportScreen() {
       : null,
     section(t('report.export'), [
       h('button', { type: 'button', class: 'row action', onClick: () => exportShow('xlsx') }, icon('share', 'row-chevron'), h('span', { class: 'row-label', text: t('report.export.xlsx') })),
-      h('button', { type: 'button', class: 'row action', onClick: () => exportShow('csv') }, icon('share', 'row-chevron'), h('span', { class: 'row-label', text: t('report.export.csv') }))
+      h('button', { type: 'button', class: 'row action', onClick: () => exportShow('csv') }, icon('share', 'row-chevron'), h('span', { class: 'row-label', text: t('report.export.csv') })),
+      h('button', { type: 'button', class: 'row action', onClick: exportMailchimp }, icon('share', 'row-chevron'),
+        h('span', { class: 'row-label' }, t('report.export.mailchimp'), h('span', { class: 'row-sub', text: t('report.export.mailchimp.sub', { count: mailchimpRows(leads).length }) })))
     ], t('report.export.footer'))
   ];
 }
@@ -1406,6 +1593,32 @@ function leadTable(show, leads) {
   return { header: columns.map(([key]) => t(key)), widths: columns.map(([, w]) => w), rows };
 }
 
+/* Mailchimp: only people who may be contacted and have an email; name split into first and last. */
+
+const NAME_TITLE = /^(?:ing|mgr|bc|dr|mudr|judr|phdr|rndr|paeddr|mvdr|doc|prof|ph\.?d|csc|drsc|mba|msc|bsc|ma|ba|dis|dipl\.?-?ing|llm|mph|mr|mrs|ms|miss|herr|frau)\.?,?$/i;
+
+function splitName(full) {
+  const words = String(full || '').replace(/,/g, ' ').split(/\s+/).filter((w) => w && !NAME_TITLE.test(w));
+  if (!words.length) return ['', ''];
+  return [words[0], words.slice(1).join(' ')];
+}
+
+function mailchimpRows(leads) {
+  return leads.filter((l) => l.consent && l.email).map((l) => {
+    const [first, last] = splitName(l.name);
+    return [l.email, first, last, l.company || l.school || ''];
+  });
+}
+
+async function exportMailchimp() {
+  const show = currentShow();
+  if (!show) return;
+  const rows = mailchimpRows(showLeads());
+  if (!rows.length) { toast(t('report.export.mailchimp.none')); return; }
+  const header = ['Email Address', 'First Name', 'Last Name', 'Company'];
+  await deliverFile(buildCsv([header, ...rows]), `${fileSafe(show.name)}-mailchimp.csv`);
+}
+
 async function exportShow(format) {
   const show = currentShow();
   if (!show) return;
@@ -1552,6 +1765,28 @@ function registerServiceWorker() {
   });
 }
 
+/* ---------- Business card reader: offline readiness ---------- */
+
+const READER_VERSION = 'tesseract-7.0.0';
+
+/**
+ * Load the business card reader once in the background while online, so the
+ * service worker keeps its files and card reading works at a show without signal.
+ */
+function prepareCardReaderOffline() {
+  if (state.settings.readerReady === READER_VERSION || !navigator.onLine) return;
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+  setTimeout(async () => {
+    try {
+      const reader = await import('./card-reader.js');
+      await reader.loadReader();
+      if (!document.querySelector('.scanner')) await reader.closeReader();
+      state.settings.readerReady = READER_VERSION;
+      await store.setSetting('readerReady', READER_VERSION);
+    } catch { /* tried again on the next start */ }
+  }, 8000);
+}
+
 /* ---------- Status bar colour ---------- */
 
 /**
@@ -1584,6 +1819,7 @@ async function start() {
   render({ enter: true });
   window.addEventListener('scroll', updateNavbar, { passive: true });
   registerServiceWorker();
+  prepareCardReaderOffline();
   if (!state.settings.userName) await showWelcome();
 }
 

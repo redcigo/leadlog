@@ -5,8 +5,12 @@
  */
 'use strict';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const CACHE = `leadlog-${VERSION}`;
+// Business card reading (about 10 MB) is kept in its own cache, filled the first
+// time it is used, so app updates don't download it again.
+const OCR_CACHE = 'leadlog-ocr-tesseract-7.0.0';
+const OCR_PATH = '/vendor/tesseract/';
 const FILES = [
   './',
   './index.html',
@@ -25,6 +29,8 @@ const FILES = [
   './js/sharing.js',
   './js/roster.js',
   './js/qr-code.js',
+  './js/card-reader.js',
+  './js/card-parser.js',
   './vendor/jsqr.js',
   './vendor/qrcode.mjs',
   './icons/icon-192.png',
@@ -42,7 +48,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k.startsWith('leadlog-') && k !== CACHE).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k.startsWith('leadlog-') && k !== CACHE && k !== OCR_CACHE).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -60,6 +66,17 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     // Always open the cached app shell, so it starts with no signal.
     event.respondWith(caches.match('./index.html').then((cached) => cached || fetch(request)));
+    return;
+  }
+  if (url.pathname.includes(OCR_PATH)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(OCR_CACHE);
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const response = await fetch(request);
+      if (response.ok) cache.put(request, response.clone());
+      return response;
+    })());
     return;
   }
   event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));

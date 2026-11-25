@@ -17,9 +17,10 @@ A small web app for exhibitions and career fairs: capture leads, scan badge QR c
 - Badges that only carry an ID: the lead can be saved with just the code, a business card photo is offered straight away, and the organiser's lead export (Excel or CSV) can be imported to fill in names and companies.
 - Each lead records who captured it.
 - Colleagues: send a show's leads as a file (AirDrop, Quick Share, email) and merge it on the other phone, skipping duplicates; or hand over a single lead as a QR code, offline.
+- Business card reading: photograph a card and the form fills itself in (name, company, job title, email, phone, country). Text recognition runs on the phone, offline; nothing is sent anywhere.
 - Optional photo per lead (business card, CV).
 - Report with leads by hour, interests, countries or schools, and who captured them.
-- Export to Excel (.xlsx) or CSV through the share sheet.
+- Export to Excel (.xlsx) or CSV through the share sheet, plus a Mailchimp CSV (first name, last name, company, email; only leads who agreed to be contacted).
 - Full backup and restore as a JSON file.
 - Option lists (interests, follow-up actions) can be reordered by dragging.
 - English and Czech. Light and dark mode follow the system setting. Motion follows the Reduce Motion setting.
@@ -59,11 +60,14 @@ js/qr-worker.js         QR decoding in a background thread
 js/qr-code.js           Draws QR codes (lead hand-over)
 js/sharing.js           Show files and lead QR codes for colleagues
 js/roster.js            Reads the organiser's lead list (CSV, .xlsx)
+js/card-reader.js       Business card text recognition (loads Tesseract)
+js/card-parser.js       Sorts business card text into lead fields
 js/export.js            Excel and CSV files, sharing
 js/icons.js             Interface icons
 js/illustrations.js     Line illustrations
 vendor/jsqr.js          jsQR 1.4.0 (QR decoding)
 vendor/qrcode.mjs       qrcode-generator 2.0.4 (QR encoding)
+vendor/tesseract/       tesseract.js 7.0.0 and English/Czech language data (text recognition)
 icons/                  App icons
 ```
 
@@ -73,3 +77,4 @@ No build step is needed; the files run as they are.
 
 - [jsQR](https://github.com/cozmo/jsQR) 1.4.0, Apache License 2.0. See `vendor/jsqr-LICENSE.txt`.
 - [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4, MIT License. See `vendor/qrcode-LICENSE.txt`.
+- [tesseract.js](https://github.com/naptha/tesseract.js) 7.0.0 and tesseract.js-core 7.0.0, Apache License 2.0, with Tesseract language data (Apache License 2.0). See `vendor/tesseract/`.
