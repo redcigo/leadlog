@@ -18,7 +18,7 @@ import {
 import { buildShowFile, readShowFile, planMerge, encodeLeadQr, decodeLeadQr, sameShow, LEAD_QR_PREFIX } from './sharing.js';
 import { readTable, detectColumns, buildEntries, findEntry, fillFromEntry } from './roster.js';
 
-export const APP_VERSION = '1.3.1';
+export const APP_VERSION = '1.4.0';
 
 /* ---------- Defaults (neutral; edit them in Settings) ---------- */
 
@@ -1771,7 +1771,7 @@ function registerServiceWorker() {
 
 /* ---------- Business card reader: offline readiness ---------- */
 
-const READER_VERSION = 'tesseract-7.0.0';
+const READER_VERSION = 'paddle-v6-ort-1.23.2';
 
 /**
  * Load the business card reader once in the background while online, so the

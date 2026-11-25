@@ -60,14 +60,16 @@ js/qr-worker.js         QR decoding in a background thread
 js/qr-code.js           Draws QR codes (lead hand-over)
 js/sharing.js           Show files and lead QR codes for colleagues
 js/roster.js            Reads the organiser's lead list (CSV, .xlsx)
-js/card-reader.js       Business card text recognition (loads Tesseract)
+js/card-reader.js       Business card text recognition (starts ocr-worker.js)
+js/ocr-worker.js        PaddleOCR detection and recognition, run with ONNX Runtime
 js/card-parser.js       Sorts business card text into lead fields
 js/export.js            Excel and CSV files, sharing
 js/icons.js             Interface icons
 js/illustrations.js     Line illustrations
 vendor/jsqr.js          jsQR 1.4.0 (QR decoding)
 vendor/qrcode.mjs       qrcode-generator 2.0.4 (QR encoding)
-vendor/tesseract/       tesseract.js 7.0.0 and English/Czech language data (text recognition)
+vendor/onnxruntime/     ONNX Runtime Web 1.23.2, WebAssembly build (runs the text recognition models)
+vendor/paddleocr/       PaddleOCR PP-OCRv6 small detection and recognition models
 icons/                  App icons
 ```
 
@@ -77,4 +79,5 @@ No build step is needed; the files run as they are.
 
 - [jsQR](https://github.com/cozmo/jsQR) 1.4.0, Apache License 2.0. See `vendor/jsqr-LICENSE.txt`.
 - [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4, MIT License. See `vendor/qrcode-LICENSE.txt`.
-- [tesseract.js](https://github.com/naptha/tesseract.js) 7.0.0 and tesseract.js-core 7.0.0, Apache License 2.0, with Tesseract language data (Apache License 2.0). See `vendor/tesseract/`.
+- [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) 1.23.2, MIT License. See `vendor/onnxruntime/`.
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv6 small models, Apache License 2.0. See `vendor/paddleocr/`.

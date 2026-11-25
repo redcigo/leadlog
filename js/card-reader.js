@@ -1,42 +1,63 @@
 /**
  * Reads the text on a business card photo, on the device.
- * Uses Tesseract (vendored in vendor/tesseract); nothing is sent anywhere.
+ * Uses PaddleOCR models with ONNX Runtime (vendored in vendor/), run in a
+ * background thread (ocr-worker.js); nothing is sent anywhere.
  * The engine is loaded the first time it's needed and then kept for the session.
  */
 
-const base = new URL('../vendor/tesseract/', import.meta.url).href;
-let enginePromise = null;
+let worker = null;
+let ready = null;
 let active = 0;
+let nextId = 1;
+const pending = new Map();
 
-/** Start (or reuse) the text recognition engine. */
-export function loadReader(onProgress, { langs = ['ces', 'eng'], psm = '3' } = {}) {
-  if (!enginePromise) {
-    enginePromise = import('../vendor/tesseract/tesseract.esm.min.js')
-      .then(({ default: Tesseract }) => Tesseract.createWorker(langs, 1, {
-        workerPath: `${base}worker.min.js`,
-        corePath: `${base}core/`,
-        langPath: `${base}lang`,
-        workerBlobURL: false,
-        gzip: true,
-        cacheMethod: 'none',
-        logger: (m) => { if (onProgress) onProgress(m); }
-      }).then(async (worker) => {
-        await worker.setParameters({ tessedit_pageseg_mode: psm, preserve_interword_spaces: '1', user_defined_dpi: '300' });
-        return { worker, Tesseract };
-      }));
-    enginePromise.catch(() => { enginePromise = null; });
+function startWorker() {
+  worker = new Worker(new URL('./ocr-worker.js', import.meta.url), { type: 'module' });
+  worker.onmessage = ({ data }) => {
+    if (data.type === 'loaded') return;
+    const job = pending.get(data.id);
+    if (!job) return;
+    pending.delete(data.id);
+    if (data.type === 'lines') job.resolve(data.lines);
+    else job.reject(new Error(data.message || 'Card reading failed'));
+  };
+  worker.onerror = (event) => {
+    event.preventDefault();
+    const error = new Error(event.message || 'Card reader stopped');
+    for (const job of pending.values()) job.reject(error);
+    pending.clear();
+    stopWorker();
+  };
+}
+
+function stopWorker() {
+  if (worker) worker.terminate();
+  worker = null;
+  ready = null;
+}
+
+/** Start (or reuse) the text recognition engine. onProgress gets {status, progress}. */
+export function loadReader(onProgress) {
+  if (!ready) {
+    if (!worker) startWorker();
+    if (onProgress) onProgress({ status: 'loading', progress: 0 });
+    ready = new Promise((resolve, reject) => {
+      const id = 0;
+      const onMessage = ({ data }) => {
+        if (data.type === 'loaded') { worker.removeEventListener('message', onMessage); resolve(); }
+        else if (data.type === 'error' && data.id === id) { worker.removeEventListener('message', onMessage); reject(new Error(data.message)); }
+      };
+      worker.addEventListener('message', onMessage);
+      worker.postMessage({ type: 'load', id });
+    });
+    ready.then(() => { if (onProgress) onProgress({ status: 'ready', progress: 1 }); }, () => stopWorker());
   }
-  return enginePromise;
+  return ready;
 }
 
 /** Stop the engine to free memory (unless it is reading); it starts again on the next use. */
-export async function closeReader() {
-  if (active) return;
-  const engine = enginePromise;
-  enginePromise = null;
-  if (engine) {
-    try { (await engine).worker.terminate(); } catch { /* already gone */ }
-  }
+export function closeReader() {
+  if (!active) stopWorker();
 }
 
 /**
@@ -45,52 +66,15 @@ export async function closeReader() {
  */
 export async function readLines(image) {
   active++;
-  let data;
   try {
-    const { worker } = await loadReader();
-    ({ data } = await worker.recognize(image, {}, { blocks: true, text: true }));
+    await loadReader();
+    const bitmap = await createImageBitmap(image);
+    const id = nextId++;
+    return await new Promise((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+      worker.postMessage({ type: 'read', id, bitmap }, [bitmap]);
+    });
   } finally {
     active--;
   }
-  const lines = [];
-  for (const block of data.blocks || []) {
-    for (const para of block.paragraphs || []) {
-      for (const line of para.lines || []) {
-        for (const part of splitColumns(line)) if (part) lines.push(part);
-      }
-    }
-  }
-  return lines.sort((a, b) => a.top - b.top || a.left - b.left);
-}
-
-/**
- * Cards often print two columns side by side (phone on the left, address on the
- * right). The reader returns them as one line; a wide gap between words splits them.
- */
-function splitColumns(line) {
-  const words = (line.words || []).filter((w) => w.text && w.text.trim());
-  if (!words.length) {
-    const text = line.text.replace(/\s+/g, ' ').trim();
-    return text ? [{ text, height: line.bbox.y1 - line.bbox.y0, top: line.bbox.y0, left: line.bbox.x0, confidence: line.confidence }] : [];
-  }
-  const heights = words.map((w) => w.bbox.y1 - w.bbox.y0).sort((a, b) => a - b);
-  const height = heights[Math.floor(heights.length / 2)];
-  const groups = [[words[0]]];
-  for (let i = 1; i < words.length; i++) {
-    const gap = words[i].bbox.x0 - words[i - 1].bbox.x1;
-    if (gap > height * 1.8) groups.push([]);
-    groups[groups.length - 1].push(words[i]);
-  }
-  return groups.map((group) => {
-    // Drop vertical bars and dots used as decoration ("|", "•").
-    const text = group.map((w) => w.text).join(' ').replace(/^[|¦!Il•·*]\s+/, '').replace(/\s+[|¦•·*]$/, '').trim();
-    if (!text || /^[|¦•·*]+$/.test(text)) return null;
-    return {
-      text,
-      height,
-      top: Math.min(...group.map((w) => w.bbox.y0)),
-      left: group[0].bbox.x0,
-      confidence: group.reduce((sum, w) => sum + w.confidence, 0) / group.length
-    };
-  });
 }

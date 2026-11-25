@@ -9,7 +9,7 @@
 
 const EMAIL = /[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/i;
 const WEB = /(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/[^\s]*)?/i;
-const PHONE = /\+?\(?\d[\d\s().\/-]{6,}\d/;
+const PHONE = /\+?\(?\d[\d\s()./-]{6,}\d/;
 
 const TITLES = /^(?:ing|mgr|bc|dr|mudr|judr|phdr|rndr|paeddr|mvdr|doc|prof|ph\.?d|csc|drsc|mba|msc|bsc|ma|ba|dis|dipl\.?-?ing|llm|mph|eng)\.?,?$/i;
 /** Legal forms that end a company name ("s.r.o.", "GmbH", "Ltd"). */
@@ -85,6 +85,29 @@ function countryName(code, language) {
   } catch {
     return '';
   }
+}
+
+/**
+ * Even out a phone number as read: restore a "+" the reader turned into a dash
+ * (or dropped from a Czech/Slovak number) and put a space after the country code.
+ */
+function tidyPhone(raw, before) {
+  let value = raw.replace(/\s+/g, ' ').trim();
+  if (value.startsWith('00')) value = `+${value.slice(2).trim()}`;
+  const digits = value.replace(/\D/g, '');
+  const code = (PHONE_COUNTRY.find(([prefix]) => digits.startsWith(prefix)) || [])[0];
+  if (!value.startsWith('+') && code) {
+    const czsk = (code === '420' || code === '421') && digits.length === 12;
+    if (czsk || /[-–—÷]\s*$/.test(before)) value = `+${value}`;
+  }
+  if (!value.startsWith('+') || !code) return value;
+  const national = digits.slice(code.length);
+  if ((code === '420' || code === '421') && national.length === 9) {
+    return `+${code} ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`;
+  }
+  const first = value.slice(1).split(' ')[0];
+  if (/^\d+$/.test(first) && first.length > code.length) value = `+${code} ${value.slice(1 + code.length)}`;
+  return value;
 }
 
 function countryFromPhone(phone) {
@@ -192,14 +215,15 @@ export function parseCard(lines, options = {}) {
   for (const seg of usable) {
     if (used.has(seg)) continue;
     const label = (seg.text.match(/^([a-z.\- ]{1,10})[:.]?\s/i) || [])[1] || '';
-    const m = seg.text.replace(LABEL, '').match(PHONE);
+    const line = seg.text.replace(LABEL, '');
+    const m = line.match(PHONE);
     if (!m) continue;
     const digits = m[0].replace(/\D/g, '');
     if (digits.length < 8 || digits.length > 15) continue;
     if (ADDRESS.test(seg.text) && !/\+/.test(m[0])) continue;
     const fax = /fax/i.test(label);
     const mobile = /^(?:m|mob|mobil|mobile|cell|gsm)\b/i.test(label);
-    phones.push({ value: m[0].replace(/\s+/g, ' ').trim(), rank: fax ? 2 : mobile ? 0 : 1 });
+    phones.push({ value: tidyPhone(m[0], line.slice(0, m.index)), rank: fax ? 2 : mobile ? 0 : 1 });
     used.add(seg);
   }
   phones.sort((a, b) => a.rank - b.rank);
@@ -219,6 +243,9 @@ export function parseCard(lines, options = {}) {
     let text = company.text.replace(/[|,;]+$/, '').trim();
     // Drop stray characters after the company name (often a logo read as letters):
     // a company name ends with its legal form, or with the last word of the email domain.
+    // A logo printed right after the name can run into it ("NETWORKS GMBHORDLICHT").
+    text = text.replace(/(?<![\p{L}])(gmbh|ltd|inc|llc|plc|corp)(\p{L}{3,})/giu, (all, form, glued) => (
+      text.toLowerCase().replace(all.toLowerCase(), '').includes(glued.toLowerCase()) ? form : all));
     const legalAt = text.search(LEGAL_FORM);
     if (legalAt >= 0) {
       const match = text.slice(legalAt).match(LEGAL_FORM);

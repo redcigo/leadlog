@@ -5,12 +5,12 @@
  */
 'use strict';
 
-const VERSION = '1.3.1';
+const VERSION = '1.4.0';
 const CACHE = `leadlog-${VERSION}`;
-// Business card reading (about 10 MB) is kept in its own cache, filled the first
+// Business card reading (about 43 MB) is kept in its own cache, filled the first
 // time it is used, so app updates don't download it again.
-const OCR_CACHE = 'leadlog-ocr-tesseract-7.0.0';
-const OCR_PATH = '/vendor/tesseract/';
+const OCR_CACHE = 'leadlog-ocr-paddle-v6-ort-1.23.2';
+const OCR_PATHS = ['/vendor/onnxruntime/', '/vendor/paddleocr/'];
 const FILES = [
   './',
   './index.html',
@@ -30,6 +30,7 @@ const FILES = [
   './js/roster.js',
   './js/qr-code.js',
   './js/card-reader.js',
+  './js/ocr-worker.js',
   './js/card-parser.js',
   './vendor/jsqr.js',
   './vendor/qrcode.mjs',
@@ -68,7 +69,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(caches.match('./index.html').then((cached) => cached || fetch(request)));
     return;
   }
-  if (url.pathname.includes(OCR_PATH)) {
+  if (OCR_PATHS.some((path) => url.pathname.includes(path))) {
     event.respondWith((async () => {
       const cache = await caches.open(OCR_CACHE);
       const cached = await cache.match(request);

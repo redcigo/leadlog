@@ -153,7 +153,7 @@ const STRINGS = {
     'settings.about': 'About',
     'settings.version': 'Version',
     'settings.licenses': 'Open-source licences',
-    'settings.licenses.body': 'QR reading: jsQR (Apache License 2.0). QR codes: qrcode-generator (MIT). Business card reading: Tesseract and tesseract.js (Apache License 2.0).',
+    'settings.licenses.body': 'QR reading: jsQR (Apache License 2.0). QR codes: qrcode-generator (MIT). Business card reading: PaddleOCR models (Apache License 2.0) and ONNX Runtime (MIT).',
 
     'update.available': 'A new version is ready.',
     'update.reload': 'Update',
@@ -431,7 +431,7 @@ const STRINGS = {
     'settings.about': 'O aplikaci',
     'settings.version': 'Verze',
     'settings.licenses': 'Open-source licence',
-    'settings.licenses.body': 'Čtení QR kódů: jsQR (Apache License 2.0). Tvorba QR kódů: qrcode-generator (MIT). Čtení vizitek: Tesseract a tesseract.js (Apache License 2.0).',
+    'settings.licenses.body': 'Čtení QR kódů: jsQR (Apache License 2.0). Tvorba QR kódů: qrcode-generator (MIT). Čtení vizitek: modely PaddleOCR (Apache License 2.0) a ONNX Runtime (MIT).',
 
     'update.available': 'Je připravená nová verze.',
     'update.reload': 'Aktualizovat',
